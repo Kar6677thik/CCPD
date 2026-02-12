@@ -44,7 +44,15 @@ async def upload_and_analyze_csv(file: UploadFile = File(...)):
     try:
         # Read the CSV content
         content = await file.read()
-        df = pd.read_csv(io.BytesIO(content))
+        
+        # Try different encodings
+        try:
+            df = pd.read_csv(io.BytesIO(content), encoding='utf-8')
+        except UnicodeDecodeError:
+            try:
+                df = pd.read_csv(io.BytesIO(content), encoding='utf-8-sig')
+            except UnicodeDecodeError:
+                df = pd.read_csv(io.BytesIO(content), encoding='latin1')
         
         # Validate required columns
         required_cols = ['Amount'] + [f'V{i}' for i in range(1, 29)]
@@ -154,7 +162,13 @@ async def get_sample_csv():
     
     if sample_path.exists():
         # Read and return sample data
-        df = pd.read_csv(sample_path)
+        try:
+            df = pd.read_csv(sample_path, encoding='utf-8')
+        except UnicodeDecodeError:
+            try:
+                df = pd.read_csv(sample_path, encoding='utf-8-sig')
+            except UnicodeDecodeError:
+                df = pd.read_csv(sample_path, encoding='latin1')
         return {
             "filename": "sample_transactions.csv",
             "rows": len(df),
@@ -177,11 +191,13 @@ async def analyze_sample_csv():
         raise HTTPException(status_code=404, detail="Sample file not found")
     
     # Read sample file
-    with open(sample_path, 'rb') as f:
-        content = f.read()
-    
-    # Create a mock UploadFile-like object
-    df = pd.read_csv(io.BytesIO(content))
+    try:
+        df = pd.read_csv(sample_path, encoding='utf-8')
+    except UnicodeDecodeError:
+        try:
+            df = pd.read_csv(sample_path, encoding='utf-8-sig')
+        except UnicodeDecodeError:
+            df = pd.read_csv(sample_path, encoding='latin1')
     
     # Use same analysis logic
     required_cols = ['Amount'] + [f'V{i}' for i in range(1, 29)]
